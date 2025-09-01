@@ -1,10 +1,41 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import {
+    login as apiLogin,
+    logout as apiLogout,
+    deleteMember,
+    getMemberInfo,
+    signupInstitution,
+    signupStudent,
+    updateMemberInfo
+} from '../services/authService';
+import {
+    getPostDetail as getPostDetailAPI,
+    getPosts as getPostsAPI,
+    getVolunteerWorkDetail as getVolunteerWorkDetailAPI,
+    getVolunteerWorks as getVolunteerWorksAPI
+} from '../services/commonService';
+import {
+    createVolunteerWork as createVolunteerWorkAPI,
+    deleteVolunteerWork as deleteVolunteerWorkAPI,
+    getVolunteerApplicants as getVolunteerApplicantsAPI,
+    selectVolunteerStudent as selectVolunteerStudentAPI,
+    toggleVolunteerWork as toggleVolunteerWorkAPI,
+    updateVolunteerWork as updateVolunteerWorkAPI
+} from '../services/institutionService';
+import {
+    applyForVolunteer as applyForVolunteerAPI,
+    createPost as createPostAPI,
+    deletePost as deletePostAPI,
+    getVolunteerHistory as getVolunteerHistoryAPI,
+    updatePortfolio as updatePortfolioAPI,
+    updatePost as updatePostAPI
+} from '../services/studentService';
 
 interface User {
   id: string;
   name: string;
   email: string;
-  type: 'student' | 'agency';
+  type: 'student' | 'institution';
   profile?: {
     school?: string;
     grade?: string;
@@ -15,16 +46,44 @@ interface User {
     major?: string;
     selfIntroduction?: string;
     portfolio?: string;
+    institutionName?: string;
+    institutionType?: string;
+    description?: string;
   };
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
-  register: (userData: Partial<User> & { password: string }) => Promise<boolean>;
+  login: (loginId: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  registerStudent: (userData: any) => Promise<boolean>;
+  registerInstitution: (userData: any) => Promise<boolean>;
   updateProfile: (profileData: Partial<User>) => Promise<boolean>;
+  deleteAccount: () => Promise<boolean>;
+  refreshUserInfo: () => Promise<void>;
+  
+  // 학생 전용 함수들
+  updatePortfolio: (portfolio: string) => Promise<boolean>;
+  applyForVolunteer: (volunteerId: string, message?: string) => Promise<boolean>;
+  getVolunteerHistory: () => Promise<any[]>;
+  createPost: (title: string, content: string, date?: string, link?: string) => Promise<boolean>;
+  updatePost: (postId: string, data: any) => Promise<boolean>;
+  deletePost: (postId: string) => Promise<boolean>;
+  
+  // 기관 전용 함수들
+  createVolunteerWork: (data: any) => Promise<boolean>;
+  getVolunteerApplicants: (volunteerWorkId: string) => Promise<any[]>;
+  selectVolunteerStudent: (volunteerWorkId: string, studentId: string, status: 'selected' | 'rejected') => Promise<boolean>;
+  updateVolunteerWork: (volunteerWorkId: string, data: any) => Promise<boolean>;
+  toggleVolunteerWork: (volunteerWorkId: string) => Promise<boolean>;
+  deleteVolunteerWork: (volunteerWorkId: string) => Promise<boolean>;
+  
+  // 공통 함수들
+  getVolunteerWorks: () => Promise<any[]>;
+  getVolunteerWorkDetail: (volunteerWorkId: string) => Promise<any>;
+  getPosts: () => Promise<any[]>;
+  getPostDetail: (postId: string) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,26 +103,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const checkAuthStatus = async () => {
     try {
-      // 여기서 AsyncStorage나 다른 저장소에서 사용자 정보를 가져옴
-      // 예시로 하드코딩된 사용자 정보 사용
-      const savedUser = null; // await AsyncStorage.getItem('user');
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
-      } else {
-        // 테스트용 기본 사용자 정보 설정
-        const defaultUser: User = {
-          id: '1',
-          name: '강유림',
-          email: 'test@example.com',
-          type: 'student',
+      // 저장된 토큰이 있는지 확인하고 사용자 정보 조회
+      const response = await getMemberInfo();
+      if (response.success && response.data) {
+        const userData = response.data;
+        const user: User = {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          type: userData.type,
           profile: {
-            university: '인하대학교',
-            major: '인공지능공학과',
-            selfIntroduction: '자기소개를 합니다.\n안녕하세요\n일단 대충 만들겠습니다.\n봉사정신 투철합니다.\n섬포터즈 화이팅',
-            portfolio: 'www.tistory.com',
+            phone: userData.phone,
+            university: userData.university,
+            major: userData.major,
+            grade: userData.grade,
+            selfIntroduction: userData.selfIntroduction,
+            portfolio: userData.portfolio,
+            institutionName: userData.institutionName,
+            institutionType: userData.institutionType,
+            address: userData.address,
+            description: userData.description,
           },
         };
-        setUser(defaultUser);
+        setUser(user);
       }
     } catch (error) {
       console.error('Auth status check failed:', error);
@@ -72,24 +134,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (loginId: string, password: string): Promise<boolean> => {
     try {
       setIsLoading(true);
-      // 여기서 실제 로그인 API 호출
-      // 예시로 하드코딩된 로그인 로직 사용
-      if (email && password) {
-        const mockUser: User = {
-          id: '1',
-          name: '테스트 사용자',
-          email: email,
-          type: 'student',
-          profile: {
-            school: '서울고등학교',
-            grade: '2학년',
-          },
+      const response = await apiLogin({ loginId, password });
+      
+      if (response.success && response.data) {
+        const userData = response.data.user;
+        const user: User = {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          type: userData.type,
         };
-        setUser(mockUser);
-        // await AsyncStorage.setItem('user', JSON.stringify(mockUser));
+        setUser(user);
         return true;
       }
       return false;
@@ -101,28 +159,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    // await AsyncStorage.removeItem('user');
+  const logout = async (): Promise<void> => {
+    try {
+      await apiLogout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setUser(null);
+    }
   };
 
-  const register = async (userData: Partial<User> & { password: string }): Promise<boolean> => {
+  const registerStudent = async (userData: any): Promise<boolean> => {
     try {
       setIsLoading(true);
-      // 여기서 실제 회원가입 API 호출
-      // 예시로 하드코딩된 회원가입 로직 사용
-      const newUser: User = {
-        id: Date.now().toString(),
-        name: userData.name || '',
-        email: userData.email || '',
-        type: userData.type || 'student',
-        profile: userData.profile,
-      };
-      setUser(newUser);
-      // await AsyncStorage.setItem('user', JSON.stringify(newUser));
-      return true;
+      const response = await signupStudent(userData);
+      return response.success;
     } catch (error) {
-      console.error('Registration failed:', error);
+      console.error('Student registration failed:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const registerInstitution = async (userData: any): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      const response = await signupInstitution(userData);
+      return response.success;
+    } catch (error) {
+      console.error('Institution registration failed:', error);
       return false;
     } finally {
       setIsLoading(false);
@@ -133,21 +199,243 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       if (!user) return false;
       
-      const updatedUser = { 
-        ...user, 
-        ...profileData,
-        profile: {
-          ...user.profile,
-          ...profileData.profile,
-        }
-      };
+      const response = await updateMemberInfo(profileData);
       
-      setUser(updatedUser);
-      // await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-      return true;
+      if (response.success) {
+        const updatedUser = { 
+          ...user, 
+          ...profileData,
+          profile: {
+            ...user.profile,
+            ...profileData.profile,
+          }
+        };
+        setUser(updatedUser);
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error('Profile update failed:', error);
       return false;
+    }
+  };
+
+  const deleteAccount = async (): Promise<boolean> => {
+    try {
+      const response = await deleteMember();
+      if (response.success) {
+        setUser(null);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Account deletion failed:', error);
+      return false;
+    }
+  };
+
+  const refreshUserInfo = async (): Promise<void> => {
+    try {
+      const response = await getMemberInfo();
+      if (response.success && response.data) {
+        const userData = response.data;
+        const user: User = {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          type: userData.type,
+          profile: {
+            phone: userData.phone,
+            university: userData.university,
+            major: userData.major,
+            grade: userData.grade,
+            selfIntroduction: userData.selfIntroduction,
+            portfolio: userData.portfolio,
+            institutionName: userData.institutionName,
+            institutionType: userData.institutionType,
+            address: userData.address,
+            description: userData.description,
+          },
+        };
+        setUser(user);
+      }
+    } catch (error) {
+      console.error('Failed to refresh user info:', error);
+    }
+  };
+
+  // 학생 전용 함수들
+  const updatePortfolio = async (portfolio: string): Promise<boolean> => {
+    try {
+      const response = await updatePortfolioAPI({ portfolio });
+      if (response.success && user) {
+        const updatedUser = {
+          ...user,
+          profile: {
+            ...user.profile,
+            portfolio,
+          },
+        };
+        setUser(updatedUser);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Portfolio update failed:', error);
+      return false;
+    }
+  };
+
+  const applyForVolunteer = async (volunteerId: string, message?: string): Promise<boolean> => {
+    try {
+      const response = await applyForVolunteerAPI({ volunteerId, message });
+      return response.success;
+    } catch (error) {
+      console.error('Volunteer application failed:', error);
+      return false;
+    }
+  };
+
+  const getVolunteerHistory = async (): Promise<any[]> => {
+    try {
+      if (!user) return [];
+      const response = await getVolunteerHistoryAPI(user.id);
+      return response.success ? response.data || [] : [];
+    } catch (error) {
+      console.error('Failed to get volunteer history:', error);
+      return [];
+    }
+  };
+
+  const createPost = async (title: string, content: string, date?: string, link?: string): Promise<boolean> => {
+    try {
+      const response = await createPostAPI({ title, content, date, link });
+      return response.success;
+    } catch (error) {
+      console.error('Post creation failed:', error);
+      return false;
+    }
+  };
+
+  const updatePost = async (postId: string, data: any): Promise<boolean> => {
+    try {
+      const response = await updatePostAPI(postId, data);
+      return response.success;
+    } catch (error) {
+      console.error('Post update failed:', error);
+      return false;
+    }
+  };
+
+  const deletePost = async (postId: string): Promise<boolean> => {
+    try {
+      const response = await deletePostAPI(postId);
+      return response.success;
+    } catch (error) {
+      console.error('Post deletion failed:', error);
+      return false;
+    }
+  };
+
+  // 기관 전용 함수들
+  const createVolunteerWork = async (data: any): Promise<boolean> => {
+    try {
+      const response = await createVolunteerWorkAPI(data);
+      return response.success;
+    } catch (error) {
+      console.error('Volunteer work creation failed:', error);
+      return false;
+    }
+  };
+
+  const getVolunteerApplicants = async (volunteerWorkId: string): Promise<any[]> => {
+    try {
+      const response = await getVolunteerApplicantsAPI(volunteerWorkId);
+      return response.success ? response.data || [] : [];
+    } catch (error) {
+      console.error('Failed to get volunteer applicants:', error);
+      return [];
+    }
+  };
+
+  const selectVolunteerStudent = async (volunteerWorkId: string, studentId: string, status: 'selected' | 'rejected'): Promise<boolean> => {
+    try {
+      const response = await selectVolunteerStudentAPI(volunteerWorkId, { studentId, status });
+      return response.success;
+    } catch (error) {
+      console.error('Student selection failed:', error);
+      return false;
+    }
+  };
+
+  const updateVolunteerWork = async (volunteerWorkId: string, data: any): Promise<boolean> => {
+    try {
+      const response = await updateVolunteerWorkAPI(volunteerWorkId, data);
+      return response.success;
+    } catch (error) {
+      console.error('Volunteer work update failed:', error);
+      return false;
+    }
+  };
+
+  const toggleVolunteerWork = async (volunteerWorkId: string): Promise<boolean> => {
+    try {
+      const response = await toggleVolunteerWorkAPI(volunteerWorkId);
+      return response.success;
+    } catch (error) {
+      console.error('Volunteer work toggle failed:', error);
+      return false;
+    }
+  };
+
+  const deleteVolunteerWork = async (volunteerWorkId: string): Promise<boolean> => {
+    try {
+      const response = await deleteVolunteerWorkAPI(volunteerWorkId);
+      return response.success;
+    } catch (error) {
+      console.error('Volunteer work deletion failed:', error);
+      return false;
+    }
+  };
+
+  // 공통 함수들
+  const getVolunteerWorks = async (): Promise<any[]> => {
+    try {
+      const response = await getVolunteerWorksAPI();
+      return response.success ? response.data || [] : [];
+    } catch (error) {
+      console.error('Failed to get volunteer works:', error);
+      return [];
+    }
+  };
+
+  const getVolunteerWorkDetail = async (volunteerWorkId: string): Promise<any> => {
+    try {
+      const response = await getVolunteerWorkDetailAPI(volunteerWorkId);
+      return response.success ? response.data : null;
+    } catch (error) {
+      console.error('Failed to get volunteer work detail:', error);
+      return null;
+    }
+  };
+
+  const getPosts = async (): Promise<any[]> => {
+    try {
+      const response = await getPostsAPI();
+      return response.success ? response.data || [] : [];
+    } catch (error) {
+      console.error('Failed to get posts:', error);
+      return [];
+    }
+  };
+
+  const getPostDetail = async (postId: string): Promise<any> => {
+    try {
+      const response = await getPostDetailAPI(postId);
+      return response.success ? response.data : null;
+    } catch (error) {
+      console.error('Failed to get post detail:', error);
+      return null;
     }
   };
 
@@ -156,8 +444,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     login,
     logout,
-    register,
+    registerStudent,
+    registerInstitution,
     updateProfile,
+    deleteAccount,
+    refreshUserInfo,
+    updatePortfolio,
+    applyForVolunteer,
+    getVolunteerHistory,
+    createPost,
+    updatePost,
+    deletePost,
+    createVolunteerWork,
+    getVolunteerApplicants,
+    selectVolunteerStudent,
+    updateVolunteerWork,
+    toggleVolunteerWork,
+    deleteVolunteerWork,
+    getVolunteerWorks,
+    getVolunteerWorkDetail,
+    getPosts,
+    getPostDetail,
   };
 
   return (

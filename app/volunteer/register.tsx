@@ -3,35 +3,55 @@ import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import Button from '../../components/common/Button';
+import { useAuth } from '../../context/AuthContext';
 
 export default function VolunteerRegister() {
+  const { createVolunteerWork, user } = useAuth();
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [maxApplicants, setMaxApplicants] = useState('');
+  const [requirements, setRequirements] = useState('');
+  const [benefits, setBenefits] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!title.trim() || !date.trim() || !time.trim() || !location.trim() || !description.trim()) {
-      Alert.alert('알림', '모든 필수 항목을 입력해주세요.');
+    if (!user) {
+      Alert.alert('알림', '로그인이 필요합니다.');
+      return;
+    }
+
+    if (user.type !== 'institution') {
+      Alert.alert('알림', '기관만 봉사활동을 등록할 수 있습니다.');
+      return;
+    }
+
+    if (!title.trim() || !date.trim() || !location.trim() || !description.trim()) {
+      Alert.alert('알림', '필수 항목을 모두 입력해주세요.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // 여기서 실제 봉사활동 등록 API 호출
-      console.log('봉사활동 등록:', { 
-        title, 
-        date, 
-        time, 
-        location, 
-        description, 
-        maxApplicants: parseInt(maxApplicants) || 0 
-      });
-      Alert.alert('성공', '봉사활동이 등록되었습니다.');
-      // 등록 완료 후 이전 페이지로 이동
+      const volunteerData = {
+        title,
+        description,
+        date: `${date} ${time}`,
+        location,
+        maxApplicants: maxApplicants ? parseInt(maxApplicants) : undefined,
+        requirements: requirements || undefined,
+        benefits: benefits || undefined,
+      };
+
+      const success = await createVolunteerWork(volunteerData);
+      if (success) {
+        Alert.alert('성공', '봉사활동이 등록되었습니다.');
+        // 등록 완료 후 이전 페이지로 이동
+      } else {
+        Alert.alert('실패', '봉사활동 등록에 실패했습니다.');
+      }
     } catch (error) {
       Alert.alert('오류', '봉사활동 등록에 실패했습니다.');
     } finally {
@@ -112,6 +132,34 @@ export default function VolunteerRegister() {
             multiline
             textAlignVertical="top"
             maxLength={1000}
+          />
+        </View>
+
+        <View style={styles.inputContainer}>
+          <ThemedText style={styles.label}>요구사항</ThemedText>
+          <TextInput
+            style={styles.textArea}
+            value={requirements}
+            onChangeText={setRequirements}
+            placeholder="봉사자에게 필요한 요구사항을 입력하세요"
+            placeholderTextColor="#999"
+            multiline
+            textAlignVertical="top"
+            maxLength={500}
+          />
+        </View>
+
+        <View style={styles.inputContainer}>
+          <ThemedText style={styles.label}>혜택</ThemedText>
+          <TextInput
+            style={styles.textArea}
+            value={benefits}
+            onChangeText={setBenefits}
+            placeholder="봉사자에게 제공되는 혜택을 입력하세요"
+            placeholderTextColor="#999"
+            multiline
+            textAlignVertical="top"
+            maxLength={500}
           />
         </View>
 

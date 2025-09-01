@@ -4,17 +4,23 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { customFonts } from '../../constants/fonts';
+import { useAuth } from '../../context/AuthContext';
 
 export default function SignupStudentScreen() {
     const router = useRouter();
+    const { registerStudent, isLoading } = useAuth();
     const [fontsLoaded] = useFonts(customFonts);
     const [formData, setFormData] = useState({
-        id: '',
+        loginId: '',
         password: '',
         name: '',
+        email: '',
+        phone: '',
         university: '',
         major: '',
-        phone: '',
+        grade: '',
+        selfIntroduction: '',
+        portfolio: '',
     });
 
     if (!fontsLoaded) {
@@ -28,16 +34,16 @@ export default function SignupStudentScreen() {
         }));
     };
 
-    const handleSignup = () => {
+    const handleSignup = async () => {
         // 필수 필드 검증
-        if (!formData.id || !formData.password || !formData.name || !formData.university || !formData.major || !formData.phone) {
-            Alert.alert('알림', '모든 필드를 입력해주세요.');
+        if (!formData.loginId || !formData.password || !formData.name || !formData.email || !formData.phone) {
+            Alert.alert('알림', '필수 항목을 모두 입력해주세요.');
             return;
         }
 
         // 아이디 형식 검증 (영문, 숫자 조합 8~16자)
         const idRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,16}$/;
-        if (!idRegex.test(formData.id)) {
+        if (!idRegex.test(formData.loginId)) {
             Alert.alert('알림', '아이디는 영문과 숫자를 조합하여 8~16자로 입력해주세요.');
             return;
         }
@@ -48,14 +54,28 @@ export default function SignupStudentScreen() {
             return;
         }
 
-        // 회원가입 로직
-        console.log('학생 회원가입:', formData);
-        Alert.alert('성공', '회원가입이 완료되었습니다!', [
-            {
-                text: '확인',
-                onPress: () => router.push('/login')
+        // 이메일 형식 검증
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email)) {
+            Alert.alert('알림', '올바른 이메일 형식을 입력해주세요.');
+            return;
+        }
+
+        try {
+            const success = await registerStudent(formData);
+            if (success) {
+                Alert.alert('성공', '회원가입이 완료되었습니다!', [
+                    {
+                        text: '확인',
+                        onPress: () => router.push('/login')
+                    }
+                ]);
+            } else {
+                Alert.alert('실패', '회원가입에 실패했습니다. 다시 시도해주세요.');
             }
-        ]);
+        } catch (error) {
+            Alert.alert('오류', '회원가입 중 오류가 발생했습니다.');
+        }
     };
 
     const handleBack = () => {
@@ -80,8 +100,8 @@ export default function SignupStudentScreen() {
                         <Text style={styles.label}>아이디</Text>
                         <TextInput
                             style={styles.input}
-                            value={formData.id}
-                            onChangeText={(value) => handleInputChange('id', value)}
+                            value={formData.loginId}
+                            onChangeText={(value) => handleInputChange('loginId', value)}
                             placeholder="영문, 숫자 조합 8~16자"
                             placeholderTextColor="#999"
                             autoCapitalize="none"
@@ -113,6 +133,31 @@ export default function SignupStudentScreen() {
                     </View>
 
                     <View style={styles.inputGroup}>
+                        <Text style={styles.label}>이메일</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={formData.email}
+                            onChangeText={(value) => handleInputChange('email', value)}
+                            placeholder="예) example@email.com"
+                            placeholderTextColor="#999"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                        />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>전화번호</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={formData.phone}
+                            onChangeText={(value) => handleInputChange('phone', value)}
+                            placeholder="예) 01012345678"
+                            placeholderTextColor="#999"
+                            keyboardType="phone-pad"
+                        />
+                    </View>
+
+                    <View style={styles.inputGroup}>
                         <Text style={styles.label}>대학교</Text>
                         <TextInput
                             style={styles.input}
@@ -135,19 +180,48 @@ export default function SignupStudentScreen() {
                     </View>
 
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>전화번호</Text>
+                        <Text style={styles.label}>학년</Text>
                         <TextInput
                             style={styles.input}
-                            value={formData.phone}
-                            onChangeText={(value) => handleInputChange('phone', value)}
-                            placeholder="예) 01012345678"
+                            value={formData.grade}
+                            onChangeText={(value) => handleInputChange('grade', value)}
+                            placeholder="예) 3학년"
                             placeholderTextColor="#999"
-                            keyboardType="phone-pad"
                         />
                     </View>
 
-                    <TouchableOpacity style={styles.signupButton} onPress={handleSignup}>
-                        <Text style={styles.signupButtonText}>가입하기</Text>
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>자기소개</Text>
+                        <TextInput
+                            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                            value={formData.selfIntroduction}
+                            onChangeText={(value) => handleInputChange('selfIntroduction', value)}
+                            placeholder="자기소개를 입력해주세요"
+                            placeholderTextColor="#999"
+                            multiline
+                        />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>포트폴리오</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={formData.portfolio}
+                            onChangeText={(value) => handleInputChange('portfolio', value)}
+                            placeholder="예) www.github.com/username"
+                            placeholderTextColor="#999"
+                            autoCapitalize="none"
+                        />
+                    </View>
+
+                    <TouchableOpacity 
+                        style={[styles.signupButton, isLoading && styles.disabledButton]} 
+                        onPress={handleSignup}
+                        disabled={isLoading}
+                    >
+                        <Text style={styles.signupButtonText}>
+                            {isLoading ? '가입 중...' : '가입하기'}
+                        </Text>
                     </TouchableOpacity>
                 </View>
             </ScrollView>
@@ -220,5 +294,8 @@ const styles = StyleSheet.create({
         fontFamily: 'godoMaum',
         fontSize: 36,
         color: '#FFFFFF',
+    },
+    disabledButton: {
+        opacity: 0.6,
     },
 });

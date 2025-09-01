@@ -1,15 +1,42 @@
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
 import Button from '../components/common/Button';
+import { useAuth } from '../context/AuthContext';
 
 export default function ProfileEdit() {
-  const [name, setName] = useState('홍길동');
-  const [email, setEmail] = useState('hong@example.com');
-  const [school, setSchool] = useState('서울고등학교');
-  const [grade, setGrade] = useState('2학년');
+  const { user, updateProfile, updatePortfolio, isLoading } = useAuth();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [university, setUniversity] = useState('');
+  const [major, setMajor] = useState('');
+  const [grade, setGrade] = useState('');
+  const [selfIntroduction, setSelfIntroduction] = useState('');
+  const [portfolio, setPortfolio] = useState('');
+  const [institutionName, setInstitutionName] = useState('');
+  const [institutionType, setInstitutionType] = useState('');
+  const [address, setAddress] = useState('');
+  const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '');
+      setEmail(user.email || '');
+      setPhone(user.profile?.phone || '');
+      setUniversity(user.profile?.university || '');
+      setMajor(user.profile?.major || '');
+      setGrade(user.profile?.grade || '');
+      setSelfIntroduction(user.profile?.selfIntroduction || '');
+      setPortfolio(user.profile?.portfolio || '');
+      setInstitutionName(user.profile?.institutionName || '');
+      setInstitutionType(user.profile?.institutionType || '');
+      setAddress(user.profile?.address || '');
+      setDescription(user.profile?.description || '');
+    }
+  }, [user]);
 
   const handleSubmit = async () => {
     if (!name.trim() || !email.trim()) {
@@ -19,10 +46,27 @@ export default function ProfileEdit() {
 
     setIsSubmitting(true);
     try {
-      // 여기서 실제 프로필 수정 API 호출
-      console.log('프로필 수정:', { name, email, school, grade });
-      Alert.alert('성공', '프로필이 수정되었습니다.');
-      // 수정 완료 후 이전 페이지로 이동
+      const profileData = {
+        name,
+        email,
+        phone,
+        university,
+        major,
+        grade,
+        selfIntroduction,
+        portfolio,
+        institutionName,
+        institutionType,
+        address,
+        description,
+      };
+
+      const success = await updateProfile(profileData);
+      if (success) {
+        Alert.alert('성공', '프로필이 수정되었습니다.');
+      } else {
+        Alert.alert('실패', '프로필 수정에 실패했습니다.');
+      }
     } catch (error) {
       Alert.alert('오류', '프로필 수정에 실패했습니다.');
     } finally {
@@ -59,32 +103,149 @@ export default function ProfileEdit() {
         </View>
 
         <View style={styles.inputContainer}>
-          <ThemedText style={styles.label}>학교</ThemedText>
+          <ThemedText style={styles.label}>전화번호</ThemedText>
           <TextInput
             style={styles.input}
-            value={school}
-            onChangeText={setSchool}
-            placeholder="학교를 입력하세요"
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="전화번호를 입력하세요"
             placeholderTextColor="#999"
+            keyboardType="phone-pad"
           />
         </View>
 
-        <View style={styles.inputContainer}>
-          <ThemedText style={styles.label}>학년</ThemedText>
-          <TextInput
-            style={styles.input}
-            value={grade}
-            onChangeText={setGrade}
-            placeholder="학년을 입력하세요"
-            placeholderTextColor="#999"
-          />
-        </View>
+        {user?.type === 'student' && (
+          <>
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>대학교</ThemedText>
+              <TextInput
+                style={styles.input}
+                value={university}
+                onChangeText={setUniversity}
+                placeholder="대학교를 입력하세요"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>학과</ThemedText>
+              <TextInput
+                style={styles.input}
+                value={major}
+                onChangeText={setMajor}
+                placeholder="학과를 입력하세요"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>학년</ThemedText>
+              <TextInput
+                style={styles.input}
+                value={grade}
+                onChangeText={setGrade}
+                placeholder="학년을 입력하세요"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>자기소개</ThemedText>
+              <TextInput
+                style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+                value={selfIntroduction}
+                onChangeText={setSelfIntroduction}
+                placeholder="자기소개를 입력하세요"
+                placeholderTextColor="#999"
+                multiline
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>포트폴리오</ThemedText>
+              <TextInput
+                style={styles.input}
+                value={portfolio}
+                onChangeText={setPortfolio}
+                placeholder="포트폴리오 URL을 입력하세요"
+                placeholderTextColor="#999"
+                autoCapitalize="none"
+              />
+              <TouchableOpacity 
+                style={styles.updatePortfolioButton}
+                onPress={async () => {
+                  if (portfolio.trim()) {
+                    const success = await updatePortfolio(portfolio);
+                    if (success) {
+                      Alert.alert('성공', '포트폴리오가 업데이트되었습니다.');
+                    } else {
+                      Alert.alert('실패', '포트폴리오 업데이트에 실패했습니다.');
+                    }
+                  } else {
+                    Alert.alert('알림', '포트폴리오 URL을 입력해주세요.');
+                  }
+                }}
+              >
+                <Text style={styles.updatePortfolioButtonText}>포트폴리오 업데이트</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        {user?.type === 'institution' && (
+          <>
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>기관명</ThemedText>
+              <TextInput
+                style={styles.input}
+                value={institutionName}
+                onChangeText={setInstitutionName}
+                placeholder="기관명을 입력하세요"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>기관 유형</ThemedText>
+              <TextInput
+                style={styles.input}
+                value={institutionType}
+                onChangeText={setInstitutionType}
+                placeholder="기관 유형을 입력하세요"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>주소</ThemedText>
+              <TextInput
+                style={styles.input}
+                value={address}
+                onChangeText={setAddress}
+                placeholder="주소를 입력하세요"
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <ThemedText style={styles.label}>기관 소개</ThemedText>
+              <TextInput
+                style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="기관 소개를 입력하세요"
+                placeholderTextColor="#999"
+                multiline
+              />
+            </View>
+          </>
+        )}
 
         <View style={styles.buttonContainer}>
           <Button
-            title="수정하기"
+            title={isSubmitting ? "수정 중..." : "수정하기"}
             onPress={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isLoading}
             style={styles.submitButton}
           />
         </View>
@@ -129,5 +290,17 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginBottom: 10,
+  },
+  updatePortfolioButton: {
+    backgroundColor: '#007AFF',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  updatePortfolioButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

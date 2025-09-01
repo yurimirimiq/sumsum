@@ -1,22 +1,47 @@
+import { useFonts } from 'expo-font';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
-import { useFonts } from 'expo-font';
+import { useState } from 'react';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { customFonts } from '../constants/fonts';
+import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL, checkApiServer } from '../services/api';
 
 export default function LoginScreen() {
     const router = useRouter();
+    const { login, isLoading } = useAuth();
     const [fontsLoaded] = useFonts(customFonts);
+    const [loginId, setLoginId] = useState('');
+    const [password, setPassword] = useState('');
 
     if (!fontsLoaded) {
         return null;
     }
 
-    const handleLogin = () => {
-        console.log('로그인 버튼 클릭');
-        // 추후 API 연결
+    const handleLogin = async () => {
+        if (!loginId.trim() || !password.trim()) {
+            Alert.alert('알림', '아이디와 비밀번호를 모두 입력해주세요.');
+            return;
+        }
 
-        router.replace('/(tabs)/main');
+        try {
+            // API 서버 연결 상태 확인
+            const serverStatus = await checkApiServer();
+            if (!serverStatus.isAvailable) {
+                Alert.alert('서버 연결 오류', `API 서버에 연결할 수 없습니다.\n\n오류: ${serverStatus.message}\n\n서버 주소: ${API_BASE_URL}\n\n서버가 실행 중인지 확인해주세요.`);
+                return;
+            }
+
+            const success = await login(loginId, password);
+            if (success) {
+                router.replace('/(tabs)/main');
+            } else {
+                Alert.alert('로그인 실패', '아이디 또는 비밀번호를 확인해주세요.');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            Alert.alert('오류', '로그인 중 오류가 발생했습니다.');
+        }
     }
 
     const handleNavigateToSignup = () => {
@@ -32,11 +57,29 @@ export default function LoginScreen() {
             <View style={styles.inner}>
                 <Text style={styles.title}>로그인</Text>
 
-                <TextInput style={styles.input} placeholder=" 아이디" />
-                <TextInput style={styles.input} placeholder=" 비밀번호" />
+                <TextInput 
+                    style={styles.input} 
+                    placeholder=" 아이디" 
+                    value={loginId}
+                    onChangeText={setLoginId}
+                    autoCapitalize="none"
+                />
+                <TextInput 
+                    style={styles.input} 
+                    placeholder=" 비밀번호" 
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                />
 
-                <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-                    <Text style={styles.loginButtonText}>Login</Text>
+                <TouchableOpacity 
+                    style={[styles.loginButton, isLoading && styles.disabledButton]} 
+                    onPress={handleLogin}
+                    disabled={isLoading}
+                >
+                    <Text style={styles.loginButtonText}>
+                        {isLoading ? '로그인 중...' : 'Login'}
+                    </Text>
                 </TouchableOpacity>
 
                 <View style={styles.divider} />
@@ -114,5 +157,8 @@ const styles = StyleSheet.create({
         height: 0.5,
         backgroundColor: '#484848',
         marginBottom: 30,
+    },
+    disabledButton: {
+        opacity: 0.6,
     },
 })

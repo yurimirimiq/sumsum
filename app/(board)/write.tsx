@@ -7,8 +7,10 @@ import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'reac
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import TopHeaderBoard from '../../components/TopHeaderBoard';
 import { customFonts } from '../../constants/fonts';
+import { useAuth } from '../../context/AuthContext';
 
 export default function BoardWrite() {
+  const { createPost, user } = useAuth();
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [content, setContent] = useState('');
@@ -28,6 +30,16 @@ export default function BoardWrite() {
 
   // 등록하기 버튼 클릭 시
   const handleSubmit = async () => {
+    if (!user) {
+      Alert.alert('알림', '로그인이 필요합니다.');
+      return;
+    }
+
+    if (user.type !== 'student') {
+      Alert.alert('알림', '학생만 게시글을 작성할 수 있습니다.');
+      return;
+    }
+
     if (!title.trim() || !content.trim()) {
       Alert.alert('알림', '제목과 내용을 모두 입력해주세요.');
       return;
@@ -36,11 +48,13 @@ export default function BoardWrite() {
     setIsSubmitting(true);
 
     try {
-      // 여기서 게시글 작성 API 호출
-      console.log('게시글 작성:', { title, date, content, link });
-      Alert.alert('성공', '게시글이 작성되었습니다.');
-      // 작성 완료 후 이전 페이지로 이동
-      router.back();
+      const success = await createPost(title, content, date, link);
+      if (success) {
+        Alert.alert('성공', '게시글이 작성되었습니다.');
+        router.back();
+      } else {
+        Alert.alert('실패', '게시글 작성에 실패했습니다.');
+      }
     } catch (error) {
       Alert.alert('오류', '게시글 작성에 실패했습니다.');
     } finally {

@@ -1,7 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import TopHeaderAgency from '../../components/TopHeaderAgency';
 import TopHeaderMain from '../../components/TopHeaderMain';
+import { useAuth } from '../../context/AuthContext';
 
 interface VolunteerData {
   id: string;
@@ -14,8 +16,12 @@ interface VolunteerData {
 export default function VolunteerDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { applyForVolunteer, getVolunteerApplicants, user } = useAuth();
   const [volunteer, setVolunteer] = useState<VolunteerData | null>(null);
+  const [applicants, setApplicants] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isApplying, setIsApplying] = useState(false);
+  const [showApplicants, setShowApplicants] = useState(false);
 
   useEffect(() => {
     loadVolunteer();
@@ -40,12 +46,49 @@ export default function VolunteerDetail() {
     }
   };
 
-  const handleApply = () => {
-    Alert.alert('신청 완료', '봉사활동 신청이 완료되었습니다.');
+  const handleApply = async () => {
+    if (!user) {
+      Alert.alert('알림', '로그인이 필요합니다.');
+      return;
+    }
+
+    if (user.type !== 'student') {
+      Alert.alert('알림', '학생만 봉사활동에 신청할 수 있습니다.');
+      return;
+    }
+
+    setIsApplying(true);
+    try {
+      const success = await applyForVolunteer(id || '');
+      if (success) {
+        Alert.alert('신청 완료', '봉사활동 신청이 완료되었습니다.');
+      } else {
+        Alert.alert('신청 실패', '봉사활동 신청에 실패했습니다. 다시 시도해주세요.');
+      }
+    } catch (error) {
+      Alert.alert('오류', '봉사활동 신청 중 오류가 발생했습니다.');
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   const handleTravelCourseLink = () => {
     Linking.openURL('https://www.blog.com');
+  };
+
+  const handleViewApplicants = async () => {
+    if (!user || user.type !== 'institution') {
+      Alert.alert('알림', '기관만 신청자 목록을 볼 수 있습니다.');
+      return;
+    }
+
+    try {
+      const applicantList = await getVolunteerApplicants(id || '');
+      setApplicants(applicantList);
+      setShowApplicants(true);
+    } catch (error) {
+      Alert.alert('오류', '신청자 목록을 불러오는데 실패했습니다.');
+    }
   };
 
   if (isLoading) {
@@ -82,12 +125,21 @@ export default function VolunteerDetail() {
 
   return (
     <View style={styles.container}>
-      <TopHeaderMain
-        showBackButton={true}
-        logoText='섬포터즈'
-        profileImageSource={require('../../assets/images/men.png')}
-        gender='agency'
-      />
+      {user?.type === 'institution' ? (
+        <TopHeaderAgency
+          showBackButton={true}
+          logoText='섬포터즈'
+          profileImageSource={require('../../assets/images/men.png')}
+          gender='agency'
+        />
+      ) : (
+        <TopHeaderMain
+          showBackButton={true}
+          logoText='섬포터즈'
+          profileImageSource={require('../../assets/images/men.png')}
+          gender='agency'
+        />
+      )}
       
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* 배너 섹션 */}
@@ -139,12 +191,77 @@ export default function VolunteerDetail() {
         </View>
       </ScrollView>
 
-      {/* 신청하기 버튼 */}
+      {/* 신청하기 버튼 또는 신청자 목록 버튼 */}
       <View style={styles.applyButtonContainer}>
-        <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
-          <Text style={styles.applyButtonText}>신청하기</Text>
-        </TouchableOpacity>
+        {user?.type === 'student' ? (
+          <TouchableOpacity 
+            style={[styles.applyButton, isApplying && styles.disabledButton]} 
+            onPress={handleApply}
+            disabled={isApplying}
+          >
+            <Text style={styles.applyButtonText}>
+              {isApplying ? '신청 중...' : '신청하기'}
+            </Text>
+          </TouchableOpacity>
+        ) : user?.type === 'institution' ? (
+          <TouchableOpacity 
+            style={styles.applyButton} 
+            onPress={handleViewApplicants}
+          >
+            <Text style={styles.applyButtonText}>
+              신청자 목록 ({applicants.length})
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
+
+      {/* 신청자 목록 모달 */}
+      <Modal
+        visible={showApplicants}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowApplicants(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>신청자 목록</Text>
+              <TouchableOpacity onPress={() => setShowApplicants(false)}>
+                <Text style={styles.closeButton}>닫기</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.applicantList}>
+              {applicants.length === 0 ? (
+                <Text style={styles.noApplicantsText}>신청자가 없습니다.</Text>
+              ) : (
+                applicants.map((applicant) => (
+                  <View key={applicant.id} style={styles.applicantCard}>
+                    <View style={styles.applicantHeader}>
+                      <Text style={styles.applicantName}>{applicant.studentName}</Text>
+                      <View style={[styles.statusBadge, { backgroundColor: applicant.status === 'pending' ? '#FF9500' : applicant.status === 'selected' ? '#34C759' : '#FF3B30' }]}>
+                        <Text style={styles.statusText}>
+                          {applicant.status === 'pending' ? '대기중' : applicant.status === 'selected' ? '선택됨' : '거절됨'}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    <Text style={styles.applicantInfo}>{applicant.studentUniversity} {applicant.studentMajor} {applicant.studentGrade}</Text>
+                    <Text style={styles.applicantInfo}>{applicant.studentEmail}</Text>
+                    <Text style={styles.applicantDate}>
+                      신청일: {new Date(applicant.appliedAt).toLocaleDateString('ko-KR')}
+                    </Text>
+                    
+                    {applicant.message && (
+                      <Text style={styles.applicantMessage}>메시지: {applicant.message}</Text>
+                    )}
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -280,5 +397,91 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '90%',
+    maxHeight: '80%',
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    paddingBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    fontSize: 16,
+    color: '#007AFF',
+  },
+  applicantList: {
+    flex: 1,
+  },
+  noApplicantsText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#666',
+    marginTop: 50,
+  },
+  applicantCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 10,
+  },
+  applicantHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  applicantName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  applicantInfo: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  applicantDate: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 8,
+  },
+  applicantMessage: {
+    fontSize: 14,
+    color: '#333',
+    fontStyle: 'italic',
+    backgroundColor: '#fff',
+    padding: 8,
+    borderRadius: 4,
   },
 });
