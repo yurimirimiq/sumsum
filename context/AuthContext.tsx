@@ -107,11 +107,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const response = await getMemberInfo();
       if (response.success && response.data) {
         const userData = response.data;
+        const normalizedType = (userData.type || '').toString().toLowerCase();
         const user: User = {
           id: userData.id,
           name: userData.name,
           email: userData.email,
-          type: userData.type,
+          type: (normalizedType === 'institution' || normalizedType === 'agency') ? 'institution' : 'student',
           profile: {
             phone: userData.phone,
             university: userData.university,
@@ -144,11 +145,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const me = await getMemberInfo();
         if (me.success && me.data) {
           const userData = me.data;
+          const normalizedType = (userData.type || '').toString().toLowerCase();
           const user: User = {
             id: userData.id,
             name: userData.name,
             email: userData.email,
-            type: userData.type,
+            type: (normalizedType === 'institution' || normalizedType === 'agency') ? 'institution' : 'student',
           };
           setUser(user);
           return { success: true };

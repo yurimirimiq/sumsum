@@ -1,9 +1,9 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { ThemedText } from '../../../components/ThemedText';
-import { ThemedView } from '../../../components/ThemedView';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import TopHeaderAgency from '../../../components/TopHeaderAgency';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function AgencyProfile() {
+  const { user } = useAuth();
   return (  
     <>
     <TopHeaderAgency
@@ -11,43 +11,35 @@ export default function AgencyProfile() {
       logoText='기관페이지'
     />
 
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
       <ScrollView style={styles.scrollView}>
-        <ThemedText style={styles.title}>기관 마이페이지</ThemedText>
+        <Text style={styles.title}>기관페이지</Text>
         
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>기관 정보</ThemedText>
+          <Text style={styles.sectionTitle}>기관 정보</Text>
           <View style={styles.infoItem}>
-            <ThemedText style={styles.label}>기관명:</ThemedText>
-            <ThemedText style={styles.value}>서울시립복지관</ThemedText>
+            <Text style={styles.label}>기관명:</Text>
+            <Text style={styles.value}>{user?.profile?.institutionName || user?.name || ''}</Text>
           </View>
           <View style={styles.infoItem}>
-            <ThemedText style={styles.label}>주소:</ThemedText>
-            <ThemedText style={styles.value}>서울시 강남구</ThemedText>
+            <Text style={styles.label}>주소:</Text>
+            <Text style={styles.value}>{user?.profile?.address || ''}</Text>
           </View>
           <View style={styles.infoItem}>
-            <ThemedText style={styles.label}>연락처:</ThemedText>
-            <ThemedText style={styles.value}>02222-1234-5678</ThemedText>
+            <Text style={styles.label}>연락처:</Text>
+            <Text style={styles.value}>{user?.profile?.phone || ''}</Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>봉사활동 관리</ThemedText>
+          <Text style={styles.sectionTitle}>등록한 봉사</Text>
           <View style={styles.infoItem}>
-            <ThemedText style={styles.label}>등록한 봉사:</ThemedText>
-            <ThemedText style={styles.value}>8건</ThemedText>
-          </View>
-          <View style={styles.infoItem}>
-            <ThemedText style={styles.label}>진행중인 봉사:</ThemedText>
-            <ThemedText style={styles.value}>3건</ThemedText>
-          </View>
-          <View style={styles.infoItem}>
-            <ThemedText style={styles.label}>완료된 봉사:</ThemedText>
-            <ThemedText style={styles.value}>5건</ThemedText>
+            <Text style={styles.label}>등록한 봉사:</Text>
+            <Text style={styles.value}>0건</Text>
           </View>
         </View>
       </ScrollView>
-    </ThemedView>
+    </View>
     </>
   );
 }
