@@ -55,10 +55,10 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (loginId: string, password: string) => Promise<boolean>;
+  login: (loginId: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
-  registerStudent: (userData: any) => Promise<boolean>;
-  registerInstitution: (userData: any) => Promise<boolean>;
+  registerStudent: (userData: any) => Promise<{ success: boolean; message?: string }>;
+  registerInstitution: (userData: any) => Promise<{ success: boolean; message?: string }>;
   updateProfile: (profileData: Partial<User>) => Promise<boolean>;
   deleteAccount: () => Promise<boolean>;
   refreshUserInfo: () => Promise<void>;
@@ -134,13 +134,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const login = async (loginId: string, password: string): Promise<boolean> => {
+  const login = async (loginId: string, password: string): Promise<{ success: boolean; message?: string }> => {
     try {
       setIsLoading(true);
-      const response = await apiLogin({ loginId, password });
+      const response = await apiLogin({ loginId: loginId.trim(), password: password.trim() });
       
-      if (response.success && response.data) {
-        const userData = response.data.user;
+      if (response.success) {
+        // 토큰/세션 기반 모두 대응: 로그인 직후 사용자 정보 조회
+        const me = await getMemberInfo();
+        if (me.success && me.data) {
+          const userData = me.data;
+          const user: User = {
+            id: userData.id,
+            name: userData.name,
+            email: userData.email,
+            type: userData.type,
+          };
+          setUser(user);
+          return { success: true };
+        }
+        return { success: false, message: me.error || '사용자 정보를 불러오지 못했습니다.' };
+      }
+      // 비정상 응답(예: 서버가 500이지만 세션을 이미 심은 경우)을 대비한 보정: 바로 내 정보 조회 시도
+      const meFallback = await getMemberInfo();
+      if (meFallback.success && meFallback.data) {
+        const userData = meFallback.data;
         const user: User = {
           id: userData.id,
           name: userData.name,
@@ -148,12 +166,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
           type: userData.type,
         };
         setUser(user);
-        return true;
+        return { success: true };
       }
-      return false;
+      return { success: false, message: response.error || response.message };
     } catch (error) {
+      const message = error instanceof Error ? error.message : '로그인에 실패했습니다.';
       console.error('Login failed:', error);
-      return false;
+      return { success: false, message };
     } finally {
       setIsLoading(false);
     }
@@ -169,27 +188,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const registerStudent = async (userData: any): Promise<boolean> => {
+  const registerStudent = async (userData: any): Promise<{ success: boolean; message?: string }> => {
     try {
       setIsLoading(true);
       const response = await signupStudent(userData);
-      return response.success;
+      return { success: response.success, message: response.error || response.message };
     } catch (error) {
+      const message = error instanceof Error ? error.message : '회원가입에 실패했습니다.';
       console.error('Student registration failed:', error);
-      return false;
+      return { success: false, message };
     } finally {
       setIsLoading(false);
     }
   };
 
-  const registerInstitution = async (userData: any): Promise<boolean> => {
+  const registerInstitution = async (userData: any): Promise<{ success: boolean; message?: string }> => {
     try {
       setIsLoading(true);
       const response = await signupInstitution(userData);
-      return response.success;
+      return { success: response.success, message: response.error || response.message };
     } catch (error) {
+      const message = error instanceof Error ? error.message : '기관 회원가입에 실패했습니다.';
       console.error('Institution registration failed:', error);
-      return false;
+      return { success: false, message };
     } finally {
       setIsLoading(false);
     }

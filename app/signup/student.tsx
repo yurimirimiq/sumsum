@@ -48,8 +48,9 @@ export default function SignupStudentScreen() {
             return;
         }
 
-        // 비밀번호 형식 검증 (영문, 숫자 조합 8~16자)
-        if (!idRegex.test(formData.password)) {
+        // 비밀번호 형식 검증 (서버 스펙: 영문+숫자 8~16자를 우선 적용)
+        const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,16}$/;
+        if (!passwordRegex.test(formData.password)) {
             Alert.alert('알림', '비밀번호는 영문과 숫자를 조합하여 8~16자로 입력해주세요.');
             return;
         }
@@ -61,8 +62,60 @@ export default function SignupStudentScreen() {
             return;
         }
 
+        // 전화번호 숫자만 남기기 (10~11자리)
+        const phoneDigits = formData.phone.replace(/\D/g, '');
+        if (!(phoneDigits.length === 10 || phoneDigits.length === 11)) {
+            Alert.alert('알림', '전화번호는 숫자만 10~11자리로 입력해주세요.');
+            return;
+        }
+        // 서버에서 하이픈 형식을 요구할 수 있어 010-XXXX-XXXX 형태로 변환
+        const normalizedPhone = (() => {
+            if (phoneDigits.length === 11 && phoneDigits.startsWith('010')) {
+                return `010-${phoneDigits.slice(3, 7)}-${phoneDigits.slice(7)}`;
+            }
+            if (phoneDigits.length === 10 && phoneDigits.startsWith('02')) {
+                return `02-${phoneDigits.slice(2, 6)}-${phoneDigits.slice(6)}`;
+            }
+            if (phoneDigits.length === 10) {
+                return `${phoneDigits.slice(0, 3)}-${phoneDigits.slice(3, 6)}-${phoneDigits.slice(6)}`;
+            }
+            return `${phoneDigits.slice(0, 3)}-${phoneDigits.slice(3, 7)}-${phoneDigits.slice(7)}`;
+        })();
+
+        // 학년 숫자만 남기기 (예: "2학년" -> 2)
+        const normalizedGradeDigits = formData.grade.replace(/\D/g, '');
+        if (formData.grade && (normalizedGradeDigits === '' || Number(normalizedGradeDigits) <= 0)) {
+            Alert.alert('알림', '학년은 숫자만 입력해주세요. 예) 1, 2, 3, 4');
+            return;
+        }
+
+        // 포트폴리오 URL 보정 (www로 시작하면 https:// 붙이기)
+        let normalizedPortfolio = formData.portfolio.trim();
+        if (normalizedPortfolio && !/^https?:\/\//i.test(normalizedPortfolio)) {
+            normalizedPortfolio = `https://${normalizedPortfolio}`;
+        }
+
         try {
-            const success = await registerStudent(formData);
+            // 빈 문자열은 제거하여 서버에서 optional 필드로 처리되도록 함
+            const payload: any = {
+                loginId: formData.loginId.trim(),
+                password: formData.password,
+                name: formData.name.trim(),
+                email: formData.email.trim().toLowerCase(),
+                phone: normalizedPhone,
+                university: formData.university.trim(),
+                department: formData.major.trim(),
+                grade: normalizedGradeDigits, // 문자열로 전송
+                selfIntroduction: formData.selfIntroduction.trim(),
+                portfolio: normalizedPortfolio,
+            };
+            Object.keys(payload).forEach((k) => {
+                if (payload[k] === '' || payload[k] === undefined || payload[k] === null) {
+                    delete payload[k];
+                }
+            });
+
+            const { success, message } = await registerStudent(payload);
             if (success) {
                 Alert.alert('성공', '회원가입이 완료되었습니다!', [
                     {
@@ -71,10 +124,11 @@ export default function SignupStudentScreen() {
                     }
                 ]);
             } else {
-                Alert.alert('실패', '회원가입에 실패했습니다. 다시 시도해주세요.');
+                Alert.alert('실패', message || '회원가입에 실패했습니다. 입력값을 확인해주세요.');
             }
         } catch (error) {
-            Alert.alert('오류', '회원가입 중 오류가 발생했습니다.');
+            const msg = error instanceof Error ? error.message : '회원가입 중 오류가 발생했습니다.';
+            Alert.alert('오류', msg);
         }
     };
 

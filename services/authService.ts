@@ -34,9 +34,20 @@ export const login = async (data: LoginRequest): Promise<ApiResponse<LoginRespon
     body: JSON.stringify(data),
   });
 
-  if (response.success && response.data) {
-    // 로그인 성공 시 토큰 저장
-    await setStoredToken(response.data.accessToken);
+  // 서버가 토큰을 본문으로 안 주는 케이스도 있어 세션 기반 로그인 지원
+  if (response.success) {
+    // 1) 본문 토큰
+    if (response.data?.accessToken) {
+      await setStoredToken(response.data.accessToken);
+    }
+    // 2) 헤더 토큰 (예: Authorization: Bearer <token>)
+    const authHeader = response.headers?.authorization || response.headers?.Authorization;
+    if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+      const token = authHeader.slice(7).trim();
+      if (token) {
+        await setStoredToken(token);
+      }
+    }
   }
 
   return response;
