@@ -8,20 +8,18 @@ export default function ProfileEdit() {
   const { user, updateProfile } = useAuth();
   const router = useRouter();
   
-  const [name, setName] = useState(user?.name || '강유림');
-  const [university, setUniversity] = useState(user?.profile?.university || '인하대학교');
-  const [major, setMajor] = useState(user?.profile?.major || '인공지능공학과');
-  const [selfIntroduction, setSelfIntroduction] = useState(
-    user?.profile?.selfIntroduction || '자기소개를 합니다.\n안녕하세요\n일단 대충 만들겠습니다.\n봉사정신 투철합니다.\n섬포터즈 화이팅\n자기소개를 더 길게 적어주세요\nㅇㅇ\n○○○○○○'
-  );
+  const [name, setName] = useState(user?.name || '');
+  const [university, setUniversity] = useState(user?.profile?.university || '');
+  const [major, setMajor] = useState(user?.profile?.major || (user as any)?.profile?.department || '');
+  const [selfIntroduction, setSelfIntroduction] = useState(user?.profile?.selfIntroduction || '');
   const [portfolio, setPortfolio] = useState(user?.profile?.portfolio || '');
 
   useEffect(() => {
     if (user) {
-      setName(user.name);
-      setUniversity(user.profile?.university || '인하대학교');
-      setMajor(user.profile?.major || '인공지능공학과');
-      setSelfIntroduction(user.profile?.selfIntroduction || '자기소개를 합니다.\n안녕하세요\n일단 대충 만들겠습니다.\n봉사정신 투철합니다.\n섬포터즈 화이팅\n자기소개를 더 길게 적어주세요\nㅇㅇ\n○○○○○○');
+      setName(user.name || '');
+      setUniversity(user.profile?.university || '');
+      setMajor(user.profile?.major || (user as any)?.profile?.department || '');
+      setSelfIntroduction(user.profile?.selfIntroduction || '');
       setPortfolio(user.profile?.portfolio || '');
     }
   }, [user]);

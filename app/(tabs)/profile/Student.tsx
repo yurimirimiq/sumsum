@@ -5,6 +5,7 @@ import { useAuth } from '../../../context/AuthContext';
 export default function StudentProfile() {
   const { user } = useAuth();
   const portfolioUrl = user?.profile?.portfolio || 'https://www.tistory.com';
+  const department = (user as any)?.profile?.major || (user as any)?.profile?.department;
 
   const volunteerItems = [
     {
@@ -38,34 +39,26 @@ export default function StudentProfile() {
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* 정보 카드 */}
         <View style={styles.card}>
-          <InfoRow label="이름" value={user?.name || '강유림'} />
+          <InfoRow label="이름" value={user?.name || ''} />
           <Separator />
-          <InfoRow label="전화번호" value="01064818062" />
+          <InfoRow label="전화번호" value={user?.profile?.phone || ''} />
           <Separator />
           <View style={styles.infoBlockRow}>
             <Text style={styles.infoLabel}>대학명 & 학과</Text>
             <View style={styles.infoValueContainer}>
-              <Text style={styles.infoValue}>{user?.profile?.university || '인하대학교'}</Text>
-              <Text style={styles.infoValue}>{user?.profile?.major || '인공지능공학과'}</Text>
+              <Text style={styles.infoValue}>{user?.profile?.university || ''}</Text>
+              <Text style={styles.infoValue}>{department || ''}</Text>
             </View>
           </View>
           <Separator />
           <View style={styles.infoBlockRow}>
             <Text style={styles.infoLabel}>자기소개</Text>
             <View style={styles.infoValueContainer}>
-              {user?.profile?.selfIntroduction ? (
-                user.profile.selfIntroduction.split('\n').map((line, index) => (
-                  <Text key={index} style={styles.infoValue}>{line || '자기소개를 입력해주세요'}</Text>
-                ))
-              ) : (
-                <>
-                  <Text style={styles.infoValue}>자기소개를 합니다.</Text>
-                  <Text style={styles.infoValue}>안녕하세요</Text>
-                  <Text style={styles.infoValue}>일단 대충 만들겠습니다.</Text>
-                  <Text style={styles.infoValue}>봉사정신 투철합니다.</Text>
-                  <Text style={styles.infoValue}>섬포터즈 화이팅</Text>
-                </>
-              )}
+              {user?.profile?.selfIntroduction
+                ? user.profile.selfIntroduction.split('\n').map((line, index) => (
+                    <Text key={index} style={styles.infoValue}>{line || '자기소개를 입력해주세요'}</Text>
+                  ))
+                : <Text style={styles.infoValue}>자기소개를 입력해주세요</Text>}
             </View>
           </View>
           <Separator />

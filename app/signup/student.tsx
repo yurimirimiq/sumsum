@@ -115,7 +115,12 @@ export default function SignupStudentScreen() {
                 }
             });
 
-            const { success, message } = await registerStudent(payload);
+            const { success, message } = await registerStudent({
+                ...payload,
+                // 서버 필드명 호환성: introduction, portfolioLink도 함께 전달
+                introduction: payload.selfIntroduction,
+                portfolioLink: payload.portfolio,
+            });
             if (success) {
                 Alert.alert('성공', '회원가입이 완료되었습니다!', [
                     {

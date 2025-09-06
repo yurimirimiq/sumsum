@@ -115,7 +115,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           profile: {
             phone: userData.phone,
             university: userData.university,
-            major: userData.major,
+            major: userData.major || (userData as any).department,
             grade: userData.grade,
             selfIntroduction: userData.selfIntroduction,
             portfolio: userData.portfolio,
@@ -219,13 +219,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const updateProfile = async (profileData: Partial<User>): Promise<boolean> => {
     try {
       if (!user) return false;
-      
-      const response = await updateMemberInfo(profileData);
+      // 서버 스펙은 평탄화된 필드이므로 변환
+      const payload: any = {
+        name: profileData.name,
+        email: (profileData as any).email || profileData?.profile?.email,
+        phone: (profileData as any).phone || profileData?.profile?.phone,
+        university: (profileData as any).university || profileData?.profile?.university,
+        major: (profileData as any).major || profileData?.profile?.major || (profileData as any).department,
+        grade: (profileData as any).grade || profileData?.profile?.grade,
+        selfIntroduction: (profileData as any).selfIntroduction || profileData?.profile?.selfIntroduction,
+        portfolio: (profileData as any).portfolio || profileData?.profile?.portfolio,
+        institutionName: (profileData as any).institutionName || profileData?.profile?.institutionName,
+        institutionType: (profileData as any).institutionType || profileData?.profile?.institutionType,
+        address: (profileData as any).address || profileData?.profile?.address,
+        description: (profileData as any).description || profileData?.profile?.description,
+      };
+      Object.keys(payload).forEach((k) => (payload[k] === undefined ? delete payload[k] : null));
+
+      const response = await updateMemberInfo(payload);
       
       if (response.success) {
         const updatedUser = { 
           ...user, 
-          ...profileData,
+          name: profileData.name ?? user.name,
           profile: {
             ...user.profile,
             ...profileData.profile,
@@ -268,7 +284,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           profile: {
             phone: userData.phone,
             university: userData.university,
-            major: userData.major,
+            major: userData.major || (userData as any).department,
             grade: userData.grade,
             selfIntroduction: userData.selfIntroduction,
             portfolio: userData.portfolio,
